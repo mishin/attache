@@ -1,0 +1,11 @@
+# Результаты сборки контекста — не попадают в репозиторий
+*_context.txt
+*_context_*.txt
+*_part*of*.txt
+*.bundle.txt
+
+# Служебное
+node_modules/
+tests/.tmp/
+.DS_Store
+Thumbs.db

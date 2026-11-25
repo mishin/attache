@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Context Bundler v9.7 (Patched)</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --success-hover: #16a34a;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --purple: #a78bfa;
+            --border: #475569;
+            --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+
+            --tok-keyword:   #c586c0;
+            --tok-type:      #4ec9b0;
+            --tok-string:    #ce9178;
+            --tok-comment:   #6a9955;
+            --tok-annotation:#dcdcaa;
+            --tok-number:    #b5cea8;
+            --tok-tag:       #569cd6;
+            --tok-attr:      #9cdcfe;
+            --tok-key:       #9cdcfe;
+            --tok-punct:     #808080;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem; }
+
+        .card { background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+        @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } body { padding: 1rem; } }
+        .form-group { margin-bottom: 0.5rem; }
+        label { display: block; margin-bottom: 0.4rem; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; }
+        input[type="text"], input[type="search"], select { width: 100%; padding: 0.7rem; background-color: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.85rem; }
+        input[type="search"] { font-family: inherit; }
+        input[type="text"]:focus, input[type="search"]:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+        .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; align-items: center; }
+        .preset-btn { padding: 0.4rem 0.85rem; background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; }
+        .preset-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+        .preset-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .preset-btn.user { border-color: var(--purple); color: var(--purple); }
+        .preset-btn.user:hover { background: var(--purple); color: white; }
+
+        .drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 2.2rem 1.5rem; text-align: center; transition: border-color 0.2s, background-color 0.2s; background-color: rgba(59, 130, 246, 0.04); margin-top: 1rem; }
+        .drop-zone.drag-over { border-color: var(--accent); background-color: rgba(59, 130, 246, 0.09); }
+        .drop-zone p { color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.9rem; }
+        .drop-zone .icon { font-size: 2.3rem; margin-bottom: 0.3rem; }
+        .drop-actions { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+        .hidden-input { display: none; }
+
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.7rem 1.25rem; background-color: var(--accent); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; font-size: 0.9rem; gap: 0.5rem; }
+        .btn:hover:not(:disabled) { background-color: var(--accent-hover); }
+        .btn:disabled { background-color: var(--bg-tertiary); color: var(--text-secondary); cursor: not-allowed; opacity: 0.7; }
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover:not(:disabled) { background-color: var(--success-hover); }
+        .btn-danger { background-color: var(--danger); }
+        .btn-danger:hover:not(:disabled) { background-color: var(--danger-hover); }
+        .btn-secondary { background-color: var(--bg-tertiary); }
+        .btn-secondary:hover:not(:disabled) { background-color: var(--border); }
+        .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
+
+        .controls-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 0.8rem; }
+        .stats { display: flex; gap: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); flex-wrap: wrap; }
+        .stats strong { color: var(--text-primary); font-size: 0.95rem; }
+        .stats .token-badge strong { color: var(--purple); }
+        .right-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .sort-control { display: flex; align-items: center; gap: 0.5rem; }
+        .sort-control label { margin-bottom: 0; font-size: 0.8rem; }
+        .sort-control select { width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+
+        .search-bar { margin-bottom: 0.6rem; }
+        .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .view-toggle button { padding: 0.45rem 0.85rem; background: var(--bg-primary); border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: background 0.15s, color 0.15s; }
+        .view-toggle button.active { background: var(--accent); color: white; }
+        .view-toggle button:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+        .file-list, .tree-view { max-height: 460px; overflow-y: auto; background-color: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem; font-family: var(--font-mono); font-size: 0.82rem; }
+        .file-item { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--bg-tertiary); display: flex; align-items: center; gap: 0.75rem; transition: background 0.15s; }
+        .file-item:hover { background-color: var(--bg-secondary); }
+        .file-item:last-child { border-bottom: none; }
+        .file-index { color: var(--accent); font-weight: 700; min-width: 35px; text-align: right; user-select: none; }
+        .file-path { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; cursor: pointer; }
+        .file-path:hover { color: var(--accent); }
+        .file-path mark { background: rgba(250, 204, 21, 0.3); color: inherit; padding: 0 1px; border-radius: 2px; }
+        .file-size { color: #38bdf8; font-weight: 600; flex-shrink: 0; min-width: 85px; text-align: right; }
+        .file-remove { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); cursor: pointer; font-size: 0.85rem; font-weight: bold; padding: 0.2rem 0.5rem; border-radius: 4px; transition: all 0.15s; flex-shrink: 0; }
+        .file-remove:hover { background: var(--danger); color: white; }
+
+        .tree-node { user-select: none; }
+        .tree-toggle { display: inline-block; width: 1rem; text-align: center; color: var(--text-secondary); transition: transform 0.15s; }
+        .tree-toggle.expanded { transform: rotate(90deg); }
+        .tree-dir-name { cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; display: flex; align-items: center; gap: 0.4rem; color: var(--text-secondary); font-weight: 600; }
+        .tree-dir-name:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .tree-children { padding-left: 1rem; border-left: 1px dashed var(--bg-tertiary); margin-left: 0.55rem; }
+        .tree-file { padding: 0.25rem 0.4rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-radius: 4px; color: var(--text-primary); }
+        .tree-file:hover { background: var(--bg-secondary); }
+        .tree-file.checked { opacity: 0.5; }
+        .tree-checkbox { margin-right: 0.2rem; cursor: pointer; accent-color: var(--accent); }
+        .tree-size { color: #38bdf8; margin-left: auto; font-size: 0.75rem; }
+        .tree-hidden { display: none; }
+
+        .empty-state { padding: 2rem 1rem; text-align: center; color: var(--text-secondary); font-size: 0.9rem; }
+        .empty-state .icon { font-size: 2rem; display: block; margin-bottom: 0.5rem; }
+
+        .actions { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+
+        .progress-box { display: none; margin-top: 1rem; background-color: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; padding: 0.8rem; }
+        .progress-bar-container { width: 100%; height: 8px; background-color: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-bar { height: 100%; width: 0%; background-color: var(--accent); transition: width 0.1s ease; }
+
+        #status-msg { margin-top: 1rem; padding: 0.75rem; border-radius: 6px; font-size: 0.88rem; display: none; }
+        .status-info { background-color: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .status-success { background-color: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-error { background-color: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .status-warning { background-color: rgba(234, 179, 8, 0.1); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+        .preview-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.78); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem; }
+        .preview-modal.open { display: flex; }
+        .preview-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; max-width: 1100px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+        .preview-header { padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: var(--bg-tertiary); }
+        .preview-title { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .preview-meta { color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.15rem; }
+        .preview-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+        .preview-icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-size: 0.78rem; padding: 0.35rem 0.7rem; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.15s; }
+        .preview-icon-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+        .preview-icon-btn.active { color: var(--accent); border-color: var(--accent); }
+        .preview-close { background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; line-height: 1; padding: 0 0.3rem; }
+        .preview-close:hover { color: var(--danger); }
+        .preview-body { overflow: auto; flex: 1; padding: 0.75rem 0; background: #1e1e1e; }
+        .preview-code { font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.4; color: #d4d4d4; }
+        .code-line { display: flex; min-height: 1.4em; }
+        .line-num { flex: 0 0 auto; width: 3.5rem; text-align: right; padding-right: 0.75rem; color: #5a5a5a; user-select: none; border-right: 1px solid #2d2d2d; margin-right: 0.75rem; }
+        .line-content { flex: 1 1 auto; min-width: 0; white-space: pre; }
+        .preview-code.wrap .line-content { white-space: pre-wrap; word-break: break-word; }
+
+        .tok-keyword    { color: var(--tok-keyword); font-weight: 600; }
+        .tok-type       { color: var(--tok-type); }
+        .tok-string     { color: var(--tok-string); }
+        .tok-comment    { color: var(--tok-comment); font-style: italic; }
+        .tok-annotation { color: var(--tok-annotation); }
+        .tok-number     { color: var(--tok-number); }
+        .tok-tag        { color: var(--tok-tag); }
+        .tok-attr       { color: var(--tok-attr); }
+        .tok-key        { color: var(--tok-key); }
+        .tok-punct      { color: var(--tok-punct); }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+    </style>
+</head>
+<body>
+    <h1>📦 LLM Context Bundler v9.7</h1>
+    <p class="subtitle">Eager Memory Reading · Bulletproof JS Engine · XML Tags · Safe Fence & ASCII TOC</p>
+    <div class="card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="extensions">Разрешённые расширения</label>
+                <input type="text" id="extensions" value=".kt,.kts,.java,.xml,.gradle,.properties,.pro,.json,.yml,.yaml,.sql,.md,.txt,.rs,.toml,.ts,.js,.css,.sh">
+            </div>
+            <div class="form-group">
+                <label for="excluded-dirs">Игнорируемые директории и файлы</label>
+                <input type="text" id="excluded-dirs" value=".git,.gradle,.idea,.vscode,build,target,bin,out,gradlew,gradlew.bat,node_modules,dist">
+            </div>
+            <div class="form-group">
+                <label for="output-filename">Выходной файл (сохраняется)</label>
+                <input type="text" id="output-filename" value="merged_context.txt" placeholder="merged_context.txt">
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <label style="margin-bottom: 0;">Пресеты:</label>
+                <button class="btn btn-sm btn-secondary" id="save-preset-btn" title="Сохранить текущие настройки как пользовательский пресет">💾 Сохранить</button>
+            </div>
+            <label style="margin-bottom: 0; display:flex; align-items:center; gap:0.4rem; cursor:pointer; color:var(--text-secondary); font-size:0.85rem;">
+                <input type="checkbox" id="include-skip-read-errors"> Включать файлы с ошибками чтения
+            </label>
+        </div>
+        <div class="presets" id="presets">
+            <button class="preset-btn active" data-preset="android">🤖 Android / Kotlin</button>
+            <button class="preset-btn" data-preset="backend">☕ Java Backend</button>
+            <button class="preset-btn" data-preset="rust">🦀 Rust</button>
+            <button class="preset-btn" data-preset="python">🐍 Python</button>
+            <button class="preset-btn" data-preset="fullstack">🌐 Fullstack</button>
+            <button class="preset-btn" data-preset="minimal">📄 Минимальный</button>
+        </div>
+        <div class="drop-zone" id="drop-zone">
+            <div class="icon">📁</div>
+            <strong>Перетащите корень проекта сюда или выберите действие:</strong>
+            <p style="margin-bottom: 0.8rem;">Файлы кэшируются сразу, чтобы браузер не отзывал права при долгом простое.</p>
+            <div class="drop-actions">
+                <button class="btn btn-secondary" id="btn-select-load">📂 Загрузить с выбором</button>
+                <button class="btn btn-success" id="btn-select-direct-merge">⚡ Сразу объединить и сохранить</button>
+            </div>
+            <input type="file" id="file-input" class="hidden-input" webkitdirectory multiple>
+        </div>
+        <div class="progress-box" id="progress-box">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                <span id="progress-status">Обработка...</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div style="text-align: right; margin-top: 0.5rem;">
+                <button class="btn btn-danger" id="cancel-btn" style="padding: 0.35rem 0.8rem; font-size: 0.78rem;">✖ Отменить</button>
+            </div>
+        </div>
+        <div id="status-msg"></div>
+    </div>
+    <div class="card" id="preview-card" style="display: none;">
+        <div class="controls-bar">
+            <div class="stats">
+                <span>Файлов: <strong id="file-count">0</strong></span>
+                <span>Объём: <strong id="total-size">0 B</strong></span>
+                <span class="token-badge">≈ Токенов: <strong id="total-tokens">—</strong></span>
+                <span id="ext-stats" style="font-size: 0.78rem;"></span>
+            </div>
+            <div class="right-controls">
+                <div class="view-toggle" id="view-toggle">
+                    <button data-view="list" class="active">📄 Список</button>
+                    <button data-view="tree">🌳 Дерево</button>
+                </div>
+                <div class="sort-control">
+                    <label for="sort-strategy">Сортировка:</label>
+                    <select id="sort-strategy">
+                        <option value="size-desc" selected>Size ↓</option>
+                        <option value="size-asc">Size ↑</option>
+                        <option value="path-asc">Путь A-Z</option>
+                        <option value="path-desc">Путь Z-A</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="search-bar">
+            <input type="search" id="search-input" placeholder="🔍 Поиск по пути файла…" autocomplete="off">
+        </div>
+        <div class="file-list" id="file-list"></div>
+        <div class="tree-view" id="tree-view" style="display: none;"></div>
+        <div class="actions">
+            <button class="btn btn-danger" id="clear-btn" disabled>🗑 Очистить</button>
+            <button class="btn btn-secondary" id="copy-btn" disabled>📋 Копировать (XML)</button>
+            <button class="btn btn-success" id="merge-btn" disabled>📦 Собрать контекст (XML)</button>
+            <button class="btn btn-secondary" id="import-list-btn" title="Загрузить список путей из TXT">📥 Импорт путей</button>
+            <button class="btn btn-secondary" id="export-list-btn" title="Выгрузить список путей в TXT" disabled>📤 Экспорт путей</button>
+        </div>
+        <input type="file" id="import-list-input" accept=".txt" class="hidden-input">
+    </div>
+
+    <div class="preview-modal" id="preview-modal">
+        <div class="preview-content">
+            <div class="preview-header">
+                <div style="min-width: 0; flex: 1;">
+                    <div class="preview-title" id="preview-title">—</div>
+                    <div class="preview-meta" id="preview-meta"></div>
+                </div>
+                <div class="preview-actions">
+                    <button class="preview-icon-btn" id="wrap-btn" title="Перенос строк">↩ Wrap</button>
+                    <button class="preview-icon-btn" id="preview-copy-btn" title="Копировать содержимое">📋</button>
+                    <button class="preview-close" id="preview-close" aria-label="Закрыть">×</button>
+                </div>
+            </div>
+            <div class="preview-body" id="preview-body">
+                <div class="preview-code" id="preview-code">Загрузка…</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = []; 
+        let excludedFileKeys = new Set();
+        let currentView = 'list';
+        let currentSortStrategy = 'size-desc';
+        let currentSearchQuery = '';
+        let statusTimeoutId = null;
+        let tokenTaskId = 0;
+        let tokenWorker = null;
+        let totalTokensEstimate = null;
+        let previewAbortToken = 0;
+        let currentMergeController = null;
+        let previewWrapEnabled = false;
+        let currentPreviewText = '';
+        let directMergeMode = false;
+
+        const STORAGE_KEY_FILENAME = 'bundler_output_filename';
+        const STORAGE_KEY_PRESETS = 'bundler_user_presets';
+        const STORAGE_KEY_SKIP_ERRORS = 'bundler_skip_read_errors';
+        const PREVIEW_MAX_CHARS = 200000;
+        const PREVIEW_HIGHLIGHT_MAX = 80000;
+
+        // === DOM declarations (все объявления собраны в одном месте — FIX TDZ) ===
+        const $ = (id) => document.getElementById(id);
+        const dropZone = $('drop-zone');
+        const fileInput = $('file-input');
+        const btnSelectLoad = $('btn-select-load');
+        const btnSelectDirectMerge = $('btn-select-direct-merge');
+        const outputFilenameInput = $('output-filename');
+        const fileListEl = $('file-list');
+        const treeViewEl = $('tree-view');
+        const fileCountEl = $('file-count');
+        const totalSizeEl = $('total-size');
+        const totalTokensEl = $('total-tokens');
+        const extStatsEl = $('ext-stats');
+        const previewCard = $('preview-card');
+        const mergeBtn = $('merge-btn');
+        const copyBtn = $('copy-btn');
+        const clearBtn = $('clear-btn');
+        const cancelBtn = $('cancel-btn');
+        const extensionsInput = $('extensions');
+        const excludedDirsInput = $('excluded-dirs');
+        const statusMsg = $('status-msg');
+        const progressBox = $('progress-box');
+        const progressBar = $('progress-bar');
+        const progressStatus = $('progress-status');
+        const progressPercent = $('progress-percent');
+        const viewToggle = $('view-toggle');
+        const sortSelect = $('sort-strategy');
+        const searchInput = $('search-input');
+        const presetsEl = $('presets');
+        const savePresetBtn = $('save-preset-btn');
+        const previewModal = $('preview-modal');
+        const previewTitle = $('preview-title');
+        const previewMeta = $('preview-meta');
+        const previewCode = $('preview-code');
+        const previewClose = $('preview-close');
+        const wrapBtn = $('wrap-btn');
+        const previewCopyBtn = $('preview-copy-btn');
+        const includeSkipReadErrorsEl = $('include-skip-read-errors');
+        // Импорт/экспорт путей — объявлены ДО renderUI, чтобы не было TDZ
+        const importListBtnEl = $('import-list-btn');
+        const exportListBtnEl = $('export-list-btn');
+        const importListInputEl = $('import-list-input');
+
+        let includeSkippedOnReadError = localStorage.getItem(STORAGE_KEY_SKIP_ERRORS) === 'true';
+        includeSkipReadErrorsEl.checked = includeSkippedOnReadError;
+        includeSkipReadErrorsEl.addEventListener('change', () => {
+            includeSkippedOnReadError = includeSkipReadErrorsEl.checked;
+            localStorage.setItem(STORAGE_KEY_SKIP_ERRORS, String(includeSkippedOnReadError));
+        });
+
+        let savedFilename = localStorage.getItem(STORAGE_KEY_FILENAME);
+        if (savedFilename) {
+            outputFilenameInput.value = savedFilename;
+        }
+
+        outputFilenameInput.addEventListener('input', (e) => {
+            let val = e.target.value.trim();
+            if (val === '') val = 'merged_context.txt';
+            localStorage.setItem(STORAGE_KEY_FILENAME, val);
+        });
+
+        const getOutputFilename = () => {
+            let val = outputFilenameInput.value.trim();
+            return val === '' ? 'merged_context.txt' : val;
+        };
+
+        const loadUserPresets = () => {
+            try { 
+                let data = localStorage.getItem(STORAGE_KEY_PRESETS);
+                return JSON.parse(data ? data : '{}'); 
+            } catch (err) { return {}; }
+        };
+
+        const saveUserPresets = (presets) => {
+            localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
+        };
+
+        const renderUserPresets = () => {
+            presetsEl.querySelectorAll('.preset-btn.user').forEach(b => b.remove());
+            const userPresets = loadUserPresets();
+            for (const [name, data] of Object.entries(userPresets)) {
+                const btn = document.createElement('button');
+                btn.className = 'preset-btn user';
+                btn.dataset.preset = 'user_' + name;
+                btn.textContent = '⭐ ' + name;
+                btn.title = `Расширения: ${data.extensions}\nИсключения: ${data.excluded}`;
+                presetsEl.appendChild(btn);
+            }
+        };
+
+        const PRESETS = {
+            android: { extensions: '.kt,.kts,.java,.xml,.gradle,.properties,.pro,.json,.yml,.yaml,.md,.txt', excluded: '.git,.gradle,.idea,.vscode,build,target,bin,out,gradlew,gradlew.bat,ic_launcher_background.xml,ic_launcher_foreground.xml' },
+            backend: { extensions: '.java,.kt,.xml,.gradle,.properties,.yml,.yaml,.json,.sql,.md,.txt,.dockerfile', excluded: '.git,.gradle,.idea,.vscode,target,out,bin,node_modules,.mvn,gradlew,gradlew.bat' },
+            rust: { extensions: '.rs,.toml,.md,.txt,.json,.yml,.yaml', excluded: '.git,target,.cargo,.idea,.vscode,node_modules' },
+            python: { extensions: '.py,.pyw,.ipynb,.requirements.txt,.ini,.cfg,.toml,.json,.yml,.yaml,.md,.txt', excluded: '.git,__pycache__,.pytest_cache,.venv,venv,env,.idea,.vscode,build,dist,.tox,poetry.lock' },
+            fullstack: { extensions: '.kt,.java,.rs,.ts,.tsx,.js,.jsx,.vue,.html,.css,.scss,.json,.yml,.yaml,.xml,.gradle,.toml,.sql,.md,.txt', excluded: '.git,.gradle,.idea,.vscode,node_modules,build,target,dist,out,bin,coverage,.next,.nuxt' },
+            minimal: { extensions: '.kt,.kts,.java,.rs,.md,.txt', excluded: '.git,.gradle,.idea,.vscode,build,target,out,bin,node_modules' }
+        };
+
+        presetsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.preset-btn');
+            if (!btn) return;
+            
+            let preset = null;
+            if (btn.dataset.preset.startsWith('user_')) {
+                const name = btn.dataset.preset.slice(5);
+                preset = loadUserPresets()[name];
+            } else {
+                preset = PRESETS[btn.dataset.preset];
+            }
+            if (!preset) return;
+            
+            extensionsInput.value = preset.extensions;
+            excludedDirsInput.value = preset.excluded;
+            presetsEl.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            showStatus(`🎯 Пресет «${btn.textContent.trim()}» применён.`, 'info'); });  savePresetBtn.addEventListener('click', () => { const name = prompt('Название пресета:'); if (!name) return; let trimmed = name.trim(); if (trimmed === '') return;  const userPresets = loadUserPresets(); userPresets[trimmed] = { extensions: extensionsInput.value, excluded: excludedDirsInput.value }; saveUserPresets(userPresets); renderUserPresets(); showStatus(`⭐ Пресет «${trimmed}» сохранён.`, 'success');
+        });
+
+        const HIGHLIGHT_LANGS = {
+            java: { blockComment: /\/\*[\s\S]*?\*\//, lineComment: /\/\/[^\n]*/, string: /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/, annotation: /@[A-Za-z_][\w.]*/, keyword: /\b(?:abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|final|finally|float|for|goto|if|implements|import|instanceof|int|interface|long|native|new|package|private|protected|public|return|short|static|strictfp|super|switch|synchronized|this|throw|throws|transient|try|void|volatile|while|var|record|sealed|permits|yield|true|false|null)\b/, type: /\b(?:String|Integer|Long|Double|Float|Boolean|Character|Byte|Short|Object|List|Map|Set|Optional|Stream|Collection|ArrayList|HashMap|HashSet|Exception|RuntimeException|Error|Throwable)\b/, number: /\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?[fFdDlL]?)\b/ },
+            kotlin: { blockComment: /\/\*[\s\S]*?\*\//, lineComment: /\/\/[^\n]*/, string: /"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/, annotation: /@[A-Za-z_][\w.]*/, keyword: /\b(?:abstract|actual|annotation|as|assert|break|by|catch|class|companion|const|constructor|continue|crossinline|data|delegate|do|dynamic|else|enum|expect|external|field|file|final|finally|for|fun|get|if|import|in|infix|init|inline|inner|interface|internal|is|lateinit|noinline|object|open|operator|out|override|package|param|private|property|protected|public|receiver|reified|return|sealed|set|setparam|super|suspend|tailrec|this|throw|try|typealias|typeof|val|var|vararg|when|where|while|true|false|null|it)\b/, type: /\b(?:String|Int|Long|Double|Float|Boolean|Char|Byte|Short|Any|Unit|Nothing|List|MutableList|Map|MutableMap|Set|MutableSet|Array|Sequence|Flow|StateFlow|SharedFlow|CoroutineScope|Job|Deferred|Result|Pair|Triple)\b/, number: /\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?[fFdDlLuU]?)\b/ },
+            rust: { blockComment: /\/\*[\s\S]*?\*\//, lineComment: /\/\/[^\n]*/, string: /r#*"[\s\S]*?"#*|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/, annotation: /#!?\[[^\]]*\]/, keyword: /\b(?:as|async|await|break|const|continue|crate|dyn|else|enum|extern|false|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|true|type|unsafe|use|where|while|Some|None|Ok|Err)\b/, type: /\b(?:Box|Vec|Option|Result|String|str|HashMap|HashSet|BTreeMap|BTreeSet|Rc|Arc|RefCell|Mutex|RwLock|Cell|Cow|Pin|Future|i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f32|f64|bool|char|usize|isize)\b/, number: /\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?(?:f32|f64|u8|u16|u32|u64|u128|i8|i16|i32|i64|i128|usize|isize)?)\b/ },
+            python: {
+                blockComment: /"""[\s\S]*?"""|'''[\s\S]*?'''/,
+                lineComment: /#[^\n]*/,
+                string: /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,
+                annotation: /@[A-Za-z_][\w.]*/,
+                keyword: /\b(?:and|as|assert|async|await|break|class|continue|def|del|elif|else|except|False|finally|for|from|global|if|import|in|is|lambda|None|nonlocal|not|or|pass|raise|return|True|try|while|with|yield|self|cls)\b/,
+                type: /\b(?:int|float|str|bool|list|dict|set|tuple|bytes|bytearray|frozenset|complex|object|type|NoneType|Any|Optional|Union|List|Dict|Set|Tuple|Callable|Iterable|Iterator)\b/,
+                number: /\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d+)?j?)\b/
+            }
+        };
+
+        const escapeHtml = (str) => {
+            return String(str).split('&').join('&amp;')
+                              .split('<').join('&lt;')
+                              .split('>').join('&gt;')
+                              .split('"').join('&quot;')
+                              .split("'").join('&#39;');
+        };
+        
+        const detectLang = (fileName) => {
+            const l = fileName.toLowerCase();
+            if (l.endsWith('.py') || l.endsWith('.pyw') || l.endsWith('.pyi')) return 'python';
+            if (l.endsWith('.ipynb')) return 'json';
+            if (l.endsWith('.kt')) return 'kotlin';
+            if (l.endsWith('.kts')) return 'kotlin';
+            if (l.endsWith('.gradle')) return 'kotlin';
+            if (l.endsWith('.groovy')) return 'kotlin';
+            if (l.endsWith('.java')) return 'java';
+            if (l.endsWith('.rs')) return 'rust';
+            if (l.endsWith('.xml')) return 'xml';
+            if (l.endsWith('.html')) return 'xml';
+            if (l.endsWith('.htm')) return 'xml';
+            if (l.endsWith('.json')) return 'json';
+            if (l.endsWith('.js')) return 'javascript';
+            if (l.endsWith('.jsx')) return 'javascript';
+            if (l.endsWith('.ts')) return 'typescript';
+            if (l.endsWith('.tsx')) return 'typescript';
+            if (l.endsWith('.css')) return 'css';
+            if (l.endsWith('.scss')) return 'css';
+            if (l.endsWith('.sql')) return 'sql';
+            if (l.endsWith('.md')) return 'markdown';
+            if (l.endsWith('.yml')) return 'yaml';
+            if (l.endsWith('.yaml')) return 'yaml';
+            if (l.endsWith('.toml')) return 'toml';
+            if (l.endsWith('.sh')) return 'bash';
+            if (l.endsWith('.bat')) return 'bash';
+            return 'plain';
+        };
+
+        const buildMasterRegex = (spec) => {
+            const order = ['blockComment', 'lineComment', 'string', 'annotation', 'keyword', 'type', 'number'];
+            const parts = [];
+            for (let name of order) {
+                if (spec[name]) parts.push(`(?<${name}>${spec[name].source})`);
+            }
+            return new RegExp(parts.join('|'), 'g');
+        };
+
+        const tokenizeCode = (code, langName) => {
+            if (langName === 'xml') return tokenizeXml(code);
+            if (langName === 'json') return tokenizeJson(code);
+            const spec = HIGHLIGHT_LANGS[langName];
+            if (!spec) return [{ type: 'plain', value: code }];
+            const master = buildMasterRegex(spec);
+            const tokens = [];
+            let last = 0; let m;
+            while ((m = master.exec(code)) !== null) {
+                if (m.index > last) tokens.push({ type: 'plain', value: code.slice(last, m.index) });
+                let type = 'plain';
+                if (m.groups) {
+                    for (const k in m.groups) {
+                        if (m.groups[k] !== undefined) { type = k; break; }
+                    }
+                }
+                tokens.push({ type, value: m[0] });
+                last = m.index + m[0].length;
+                if (m[0].length === 0) master.lastIndex++;
+            }
+            if (last < code.length) tokens.push({ type: 'plain', value: code.slice(last) });
+            return tokens;
+        };
+
+        const tokenizeXml = (code) => {
+            const re = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<\/?[A-Za-z_][\w:.\-]*|>|\/>|[A-Za-z_][\w:.\-]*(?==)|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+            const tokens = []; let last = 0; let m;
+            while ((m = re.exec(code)) !== null) {
+                if (m.index > last) tokens.push({ type: 'plain', value: code.slice(last, m.index) });
+                const v = m[0];
+                let type = 'attr';
+                if (v.startsWith('<!--')) type = 'comment';
+                else if (v.startsWith('<![CDATA[')) type = 'comment';
+                else if (v.startsWith('<?')) type = 'punct';
+                else if (v.startsWith('<')) type = 'tag';
+                else if (v === '>') type = 'punct';
+                else if (v === '/>') type = 'punct';
+                else if (v.startsWith('"')) type = 'string';
+                else if (v.startsWith("'")) type = 'string';
+                
+                tokens.push({ type, value: v });
+                last = m.index + v.length;
+                if (v.length === 0) re.lastIndex++;
+            }
+            if (last < code.length) tokens.push({ type: 'plain', value: code.slice(last) });
+            return tokens;
+        };
+
+        const tokenizeJson = (code) => {
+            const re = /"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+            const tokens = []; let last = 0; let m;
+            while ((m = re.exec(code)) !== null) {
+                if (m.index > last) tokens.push({ type: 'plain', value: code.slice(last, m.index) });
+                const v = m[0];
+                
+                let type = 'number';
+                if (v.startsWith('"')) {
+                    if (/^\s*:/.test(code.slice(m.index + v.length))) { type = 'key'; }
+                    else { type = 'string'; }
+                } 
+                else if (v === 'true') type = 'keyword';
+                else if (v === 'false') type = 'keyword';
+                else if (v === 'null') type = 'keyword';
+                
+                tokens.push({ type, value: v });
+                last = m.index + v.length;
+                if (v.length === 0) re.lastIndex++;
+            }
+            if (last < code.length) tokens.push({ type: 'plain', value: code.slice(last) });
+            return tokens;
+        };
+
+        const TOKEN_CLASS_MAP = { keyword: 'tok-keyword', type: 'tok-type', string: 'tok-string', comment: 'tok-comment', blockComment: 'tok-comment', lineComment: 'tok-comment', annotation: 'tok-annotation', number: 'tok-number', tag: 'tok-tag', attr: 'tok-attr', key: 'tok-key', punct: 'tok-punct' };
+
+        const renderTokensToHtml = (tokens) => {
+            const lines = [[]];
+            for (const t of tokens) {
+                const parts = t.value.split('\n');
+                for (let i = 0; i < parts.length; i++) {
+                    if (i > 0) lines.push([]);
+                    if (parts[i].length > 0) lines[lines.length - 1].push({ type: t.type, value: parts[i] });
+                }
+            }
+            return lines.map((lineTokens, idx) => {
+                const inner = lineTokens.map(t => {
+                    const cls = TOKEN_CLASS_MAP[t.type];
+                    let esc = escapeHtml(t.value);
+                    if (!esc) esc = '';
+                    return cls ? `<span class="${cls}">${esc}</span>` : esc;
+                }).join('');
+                let content = inner ? inner : ' ';
+                return `<div class="code-line"><span class="line-num">${idx + 1}</span><span class="line-content">${content}</span></div>`; 
+            }).join(''); 
+        };
+
+        function workerMain() { 
+            function estimateTokens(text) { 
+                if (!text) return 0; 
+                let sample = text;
+                if (text.length > 5000) sample = text.slice(0, 5000); 
+                
+                let cyrillic = 0;
+                let latin = 0; 
+                for (let i = 0; i < sample.length; i++) { 
+                    const c = sample.charCodeAt(i); 
+                    if (c >= 0x0400 && c <= 0x04FF) cyrillic++; 
+                    else if (c < 128 && c > 32) latin++; 
+                } 
+                
+                let total = cyrillic + latin;
+                if (total === 0) total = 1;
+                
+                const charsPerToken = 4 - (cyrillic / total) * 1.5; 
+                return Math.ceil(text.length / charsPerToken); 
+            }  
+            
+            self.onmessage = async (e) => { 
+                const { files, taskId } = e.data; 
+                let totalTokens = 0; 
+                for (let i = 0; i < files.length; i++) { 
+                    const { text } = files[i]; 
+                    if (text) { 
+                        totalTokens += estimateTokens(text); 
+                    } 
+                    
+                    let isDiv20 = Number.isInteger(i / 20);
+                    let isLast = (i === files.length - 1);
+                    
+                    if (isDiv20) { self.postMessage({ type: 'progress', taskId, totalTokens }); }
+                    else if (isLast) { self.postMessage({ type: 'progress', taskId, totalTokens }); }
+                } 
+                self.postMessage({ type: 'done', taskId, totalTokens }); 
+            }; 
+        }  
+        
+        const workerBlobUrl = URL.createObjectURL(new Blob([`(${workerMain.toString()})()`], { type: 'application/javascript' }));  const resetWorker = () => { if (tokenWorker) tokenWorker.terminate(); tokenWorker = new Worker(workerBlobUrl); tokenWorker.onmessage = (e) => { if (e.data.taskId !== tokenTaskId) return; if (e.data.type === 'progress') { totalTokensEl.textContent = '≈ ' + e.data.totalTokens.toLocaleString('ru-RU') + ' …'; } else if (e.data.type === 'done') { totalTokensEstimate = e.data.totalTokens; totalTokensEl.textContent = '≈ ' + e.data.totalTokens.toLocaleString('ru-RU'); } }; tokenWorker.onerror = (err) => { console.error('Worker error:', err); totalTokensEl.textContent = 'ошибка'; }; };  
+
+        // FIX: используем getActiveFiles() — токены считаются только для активных файлов
+        const scheduleTokenEstimate = () => { 
+            const activeFiles = getActiveFiles();
+            if (selectedFiles.length === 0) { 
+                totalTokensEl.textContent = '—'; 
+                totalTokensEstimate = null; 
+                return; 
+            } 
+            if (activeFiles.length === 0) {
+                totalTokensEl.textContent = '0';
+                totalTokensEstimate = 0;
+                return;
+            }
+            tokenTaskId++; 
+            totalTokensEl.textContent = '…'; 
+            if (!tokenWorker) resetWorker(); 
+            tokenWorker.postMessage({ files: activeFiles.map(f => ({ text: f.text })), taskId: tokenTaskId }); 
+        };  
+
+        const formatSize = (bytes) => { if (bytes === 0) return '0 B'; const k = 1024; const sizes = ['B', 'KB', 'MB', 'GB']; const i = Math.floor(Math.log(bytes) / Math.log(k)); return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]; };  const getFileKey = (fileObj) => `${fileObj.path}::${fileObj.size}`;  const getAllowedExtensions = () => { let parts = extensionsInput.value.split(','); let valid = []; for (let x of parts) { let txt = x.trim().toLowerCase(); if (txt !== '') valid.push(txt); } return new Set(valid); };  const getExcludedPatterns = () => { let parts = excludedDirsInput.value.split(','); let valid = []; for (let x of parts) { let txt = x.trim().toLowerCase(); if (txt !== '') valid.push(txt); } return valid; };  const showStatus = (msg, type = 'info', autoHide = true) => { if (statusTimeoutId) clearTimeout(statusTimeoutId); statusMsg.textContent = msg; statusMsg.className = `status-${type}`; 
+            statusMsg.style.display = 'block'; 
+            
+            let hide = false;
+            if (type === 'success') hide = true;
+            if (type === 'info') hide = true;
+            if (type === 'warning') hide = true;
+            
+            if (autoHide && hide) { 
+                statusTimeoutId = setTimeout(() => { statusMsg.style.display = 'none'; }, 6000); 
+            } 
+        };  
+        
+        const hasDotSegment = (path) => { 
+            const normalized = path.split('\\').join('/'); 
+            return normalized.split('/').some(seg => seg.length > 1 && seg.startsWith('.')); 
+        };  
+        
+        const isExcludedPath = (fullPath) => { 
+            const normalized = fullPath.split('\\').join('/').toLowerCase(); 
+            const segments = normalized.split('/'); 
+            const patterns = getExcludedPatterns();  
+            
+            let found = false;
+            for (let p of patterns) {
+                if (segments.includes(p)) found = true;
+                if (normalized.endsWith('/' + p)) found = true;
+                if (normalized === p) found = true;
+            }
+            if (found) return true; 
+            if (hasDotSegment(normalized)) return true; 
+            return false; 
+        };  
+        
+        const isAllowedExtension = (fileName) => { 
+            const exts = getAllowedExtensions(); 
+            if (exts.size === 0) return true; 
+            const l = fileName.toLowerCase(); 
+            for (const ext of exts) {
+                if (l.endsWith(ext)) return true; 
+            }
+            return false; 
+        };  
+        
+        const applySorting = () => { 
+            selectedFiles.sort((a, b) => { 
+                if (currentSortStrategy === 'size-desc') {
+                    let diff = b.size - a.size;
+                    return diff !== 0 ? diff : a.path.localeCompare(b.path);
+                }
+                if (currentSortStrategy === 'size-asc') {
+                    let diff = a.size - b.size;
+                    return diff !== 0 ? diff : a.path.localeCompare(b.path);
+                }
+                if (currentSortStrategy === 'path-desc') {
+                    return b.path.localeCompare(a.path);
+                }
+                return a.path.localeCompare(b.path);
+            }); 
+        };  
+        
+        const getVisibleFiles = () => { 
+            if (!currentSearchQuery) return selectedFiles; 
+            const q = currentSearchQuery.toLowerCase(); 
+            return selectedFiles.filter(f => f.path.toLowerCase().includes(q)); 
+        };  
+        
+        const getActiveFiles = () => { 
+            return selectedFiles.filter(f => !excludedFileKeys.has(getFileKey(f))); 
+        };  
+
+        const createFileEntry = async (raw, path) => { 
+            const entry = { 
+                raw, 
+                path: path.split('\\').join('/'), 
+                size: raw.size, 
+                name: raw.name, 
+                text: null, 
+                readError: null, 
+                isBinary: false 
+            };  
+            
+            try { 
+                const slice = raw.slice(0, 8000); 
+                const buf = await slice.arrayBuffer(); 
+                const bytes = new Uint8Array(buf); 
+                for (let i = 0; i < bytes.length; i++) { 
+                    if (bytes[i] === 0) { entry.isBinary = true; break; } 
+                } 
+            } catch (e) { 
+                let emsg = e.message ? e.message : String(e);
+                entry.readError = 'binary-check: ' + emsg;
+            }
+
+            if (entry.isBinary) return entry;
+
+            try {
+                const buf = await raw.arrayBuffer();
+                entry.text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+                if (raw.size > 0 && entry.text.length === 0) {
+                    throw new Error('Файл непустой, но текст пуст');
+                }
+            } catch (e) {
+                entry.readError = e.message ? e.message : String(e);
+                try {
+                    entry.text = await raw.text();
+                    entry.readError = null;
+                } catch (e2) {
+                    let e2msg = e2.message ? e2.message : String(e2);
+                    entry.readError = entry.readError + ' | fallback:' + e2msg;
+                }
+            }
+            return entry;
+        };
+
+        const processFilesBatch = async (rawFilesObjArray) => {
+            let added = 0, skippedExt = 0, skippedIgnored = 0, dups = 0, skippedBinary = 0;
+            const existingKeys = new Set(selectedFiles.map(getFileKey));
+            const candidates = [];
+
+            for (const f of rawFilesObjArray) {
+                if (isExcludedPath(f.path)) { skippedIgnored++; continue; }
+                if (!isAllowedExtension(f.name)) { skippedExt++; continue; }
+                const key = getFileKey(f);
+                if (existingKeys.has(key)) { dups++; continue; }
+                candidates.push(f);
+            }
+
+            if (candidates.length > 30) {
+                showStatus(`⏳ Чтение содержимого ${candidates.length} файлов в кэш...`, 'info', false); }  const CHECK_BATCH = 8; const readEntries = [];  for (let i = 0; i < candidates.length; i += CHECK_BATCH) { const batch = candidates.slice(i, i + CHECK_BATCH); const batchResults = await Promise.all(batch.map(f => createFileEntry(f.raw, f.path))); readEntries.push(...batchResults); await new Promise(r => setTimeout(r, 0)); }  const readErrors = []; for (const e of readEntries) { if (e.isBinary) { skippedBinary++; continue; } if (e.readError) readErrors.push(e); selectedFiles.push(e); existingKeys.add(getFileKey(e)); added++; }  return { added, skippedExt, skippedIgnored, dups, skippedBinary, readErrors }; };  const executeDirectMerge = async () => { const activeFiles = getActiveFiles(); if (activeFiles.length === 0) { showStatus('⚠️ Подходящие файлы не найдены для объединения.', 'warning'); return; } applySorting(); currentMergeController = new AbortController(); setBusy(true); try { const chunks = await buildMergedChunks(activeFiles, currentMergeController.signal, (done, total, name) => { const percent = Math.round((done / total) * 100); progressBar.style.width = percent + '\x25'; progressPercent.textContent = percent + '\x25'; progressStatus.textContent = `Сборка (${done}/${total}):${name}`;
+                });
+                progressStatus.textContent = 'Сохранение файла…';
+                progressPercent.textContent = '…';
+                const filename = getOutputFilename();
+                const result = await writeOutputFile(chunks, filename);
+                if (result.success) {
+                    let tbytes = result.bytes;
+                    if (!tbytes) tbytes = chunks.reduce((s, c) => s + c.length, 0);
+                    showStatus(`✅ Файл «${filename}» успешно сохранен! Объём ~${formatSize(tbytes)}`, 'success');
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') showStatus(`❌ Ошибка сборки: ${err.message}`, 'error'); } finally { currentMergeController = null; setBusy(false); } };  const addFiles = async (rawFilesObjArray) => { setBusy(true); try { const stats = await processFilesBatch(rawFilesObjArray); applySorting();  if (directMergeMode) { directMergeMode = false; if (stats.added > 0) { showStatus(`⚡ Файлов подгружено: ${stats.added}. Формируем файл…`, 'info', false);
+                        await executeDirectMerge();
+                    } else {
+                        showStatus('⚠️ Подходящие файлы не найдены.', 'warning');
+                    }
+                    return;
+                }
+
+                renderUI();
+                if (stats.added > 0) scheduleTokenEstimate();
+
+                if (stats.added > 0) {
+                    let msg = `✅ Добавлено файлов: ${stats.added}.`; const total = stats.skippedExt + stats.skippedIgnored + stats.dups + stats.skippedBinary; if (total > 0) { msg += ` Отфильтровано: ${total} (расш: ${stats.skippedExt}, игнор: ${stats.skippedIgnored}, дубл: ${stats.dups}, бинар: ${stats.skippedBinary})`; 
+                    }
+                    if (stats.readErrors.length > 0) {
+                        msg += ` | ⚠️ Ошибок чтения: ${stats.readErrors.length}`; console.warn('[bundler] Ошибки чтения файлов (права отозваны):', stats.readErrors); } showStatus(msg, stats.readErrors.length > 0 ? 'warning' : 'success'); } else { showStatus('⚠️ Подходящие файлы не найдены. Проверьте расширения и пресет.', 'warning'); } } finally { setBusy(false); } };  const removeFileByIndex = (index) => { if (index >= 0) { if (index < selectedFiles.length) { const f = selectedFiles[index]; excludedFileKeys.delete(getFileKey(f)); selectedFiles.splice(index, 1); renderUI(); scheduleTokenEstimate(); } } };  const renderExtStats = () => { const active = getActiveFiles(); if (active.length === 0) { extStatsEl.textContent = ''; return; } const counts = {}; for (const f of active) { const m = f.name.toLowerCase().match(/\.[a-z0-9]+$/); const ext = m ? m[0] : '(без)'; let prev = counts[ext]; counts[ext] = (prev ? prev : 0) + 1; } const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([ext, n]) => `${ext}:${n}`).join(' · '); extStatsEl.textContent = top ? `[${top}]` : '';
+        };
+
+        const highlightMatch = (path, query) => {
+            if (!query) return escapeHtml(path);
+            const idx = path.toLowerCase().indexOf(query.toLowerCase());
+            if (idx === -1) return escapeHtml(path);
+            return escapeHtml(path.slice(0, idx)) + '<mark>' + escapeHtml(path.slice(idx, idx + query.length)) + '</mark>' + escapeHtml(path.slice(idx + query.length));
+        };
+
+        const renderList = () => {
+            fileListEl.innerHTML = '';
+            const visible = getVisibleFiles();
+            if (visible.length === 0) {
+                fileListEl.innerHTML = `<div class="empty-state"><span class="icon">🔍</span>Ничего не найдено по запросу «${escapeHtml(currentSearchQuery)}»</div>`;
+                return;
+            }
+            const fragment = document.createDocumentFragment();
+            visible.forEach((f) => {
+                const realIndex = selectedFiles.indexOf(f);
+                const isExcluded = excludedFileKeys.has(getFileKey(f));
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'file-item';
+                let styleStr = '';
+                if (isExcluded) styleStr = 'opacity:0.4;text-decoration:line-through;';
+                itemDiv.innerHTML = `<span class="file-index">${realIndex + 1}.</span>
+                                     <span class="file-path" title="Кликните для предпросмотра" data-preview-key="${getFileKey(f)}" style="${styleStr}">${highlightMatch(f.path, currentSearchQuery)}</span>
+                                     <span class="file-size">${formatSize(f.size)}</span>
+                                     <button class="file-remove" data-index="${realIndex}" title="Удалить">✕</button>`;
+                fragment.appendChild(itemDiv);
+            });
+            fileListEl.appendChild(fragment);
+        };
+
+        const buildTree = (files) => {
+            const root = { name: '', children: Object.create(null), files: [] };
+            for (const fileObj of files) {
+                const parts = fileObj.path.split('/');
+                let node = root;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    const part = parts[i];
+                    if (!node.children[part]) node.children[part] = { name: part, children: Object.create(null), files: [] };
+                    node = node.children[part];
+                }
+                node.files.push({ fileObj, name: parts[parts.length - 1] });
+            }
+            return root;
+        };
+
+        const isNodeAllExcluded = (node) => {
+            let hasFiles = false;
+            for (const entry of node.files) {
+                hasFiles = true;
+                if (!excludedFileKeys.has(getFileKey(entry.fileObj))) return false;
+            }
+            for (const dirName in node.children) {
+                const childState = isNodeAllExcluded(node.children[dirName]);
+                if (childState === false) return false;
+                if (childState === true) hasFiles = true;
+            }
+            return hasFiles ? true : null; 
+        };
+
+        const isNodeAllIncluded = (node) => {
+            let hasFiles = false;
+            for (const entry of node.files) {
+                hasFiles = true;
+                if (excludedFileKeys.has(getFileKey(entry.fileObj))) return false;
+            }
+            for (const dirName in node.children) {
+                const childState = isNodeAllIncluded(node.children[dirName]);
+                if (childState === false) return false;
+                if (childState === true) hasFiles = true;
+            }
+            return hasFiles ? true : null;
+        };
+
+        const collectNodeKeys = (node) => {
+            const keys = [];
+            for (const entry of node.files) keys.push(getFileKey(entry.fileObj));
+            for (const dirName in node.children) keys.push(...collectNodeKeys(node.children[dirName]));
+            return keys;
+        };
+
+        const renderTreeNode = (node, container) => {
+            const dirNames = Object.keys(node.children).sort();
+            for (const dirName of dirNames) {
+                const child = node.children[dirName];
+                const dirEl = document.createElement('div');
+                dirEl.className = 'tree-node tree-dir';
+                const header = document.createElement('div');
+                header.className = 'tree-dir-name';
+                
+                const allExcluded = isNodeAllExcluded(child);
+                const allIncluded = isNodeAllIncluded(child);
+                const checked = allIncluded === true;
+                const indeterminate = (allExcluded === false && allIncluded === false);
+                const nodeKeys = collectNodeKeys(child);
+                
+                let checkedStr = checked ? 'checked' : '';
+                header.innerHTML = `<span class="tree-toggle">▸</span><input type="checkbox" class="tree-checkbox tree-dir-checkbox" ${checkedStr} data-keys='${JSON.stringify(nodeKeys)}' title="Включить/исключить всю папку"> 📁 ${escapeHtml(dirName)}`;
+                
+                const checkboxEl = header.querySelector('.tree-dir-checkbox');
+                if (indeterminate) checkboxEl.indeterminate = true;
+                
+                const childrenWrap = document.createElement('div');
+                childrenWrap.className = 'tree-children tree-hidden';
+                header.addEventListener('click', (e) => {
+                    if (e.target.closest('.tree-checkbox')) return; 
+                    const hidden = childrenWrap.classList.contains('tree-hidden');
+                    if (hidden) {
+                        childrenWrap.classList.remove('tree-hidden');
+                    } else {
+                        childrenWrap.classList.add('tree-hidden');
+                    }
+                    if (hidden) {
+                        header.querySelector('.tree-toggle').classList.add('expanded');
+                    } else {
+                        header.querySelector('.tree-toggle').classList.remove('expanded');
+                    }
+                });
+                renderTreeNode(child, childrenWrap);
+                dirEl.append(header, childrenWrap);
+                container.appendChild(dirEl);
+            }
+            node.files.sort((a, b) => a.name.localeCompare(b.name));
+            for (const entry of node.files) {
+                const fileEl = document.createElement('div');
+                fileEl.className = 'tree-file';
+                const key = getFileKey(entry.fileObj);
+                const isExcluded = excludedFileKeys.has(key);
+                if (isExcluded) fileEl.classList.add('checked');
+                fileEl.dataset.previewKey = key;
+                
+                let checkedStr2 = isExcluded ? '' : 'checked';
+                fileEl.innerHTML = `<input type="checkbox" class="tree-checkbox" data-key="${key}" ${checkedStr2} title="Включить в контекст"><span>📄</span><span>${escapeHtml(entry.name)}</span><span class="tree-size">${formatSize(entry.fileObj.size)}</span>`;
+                container.appendChild(fileEl);
+            }
+        };
+
+        const renderTree = () => {
+            treeViewEl.innerHTML = '';
+            const visible = getVisibleFiles();
+            if (visible.length === 0) {
+                treeViewEl.innerHTML = `<div class="empty-state"><span class="icon">🔍</span>Ничего не найдено</div>`;
+                return;
+            }
+            const fragment = document.createDocumentFragment();
+            renderTreeNode(buildTree(visible), fragment);
+            treeViewEl.appendChild(fragment);
+        };
+
+        const renderUI = () => {
+            const active = getActiveFiles();
+            if (selectedFiles.length === 0) {
+                previewCard.style.display = 'none';
+                mergeBtn.disabled = true;
+                copyBtn.disabled = true;
+                clearBtn.disabled = true;
+                exportListBtnEl.disabled = true;
+                return;
+            }
+            previewCard.style.display = 'block';
+            fileCountEl.textContent = active.length;
+            totalSizeEl.textContent = formatSize(active.reduce((a, f) => a + f.size, 0));
+            
+            let btnDisabled = active.length === 0;
+            mergeBtn.disabled = btnDisabled;
+            copyBtn.disabled = btnDisabled;
+            clearBtn.disabled = btnDisabled;
+            exportListBtnEl.disabled = btnDisabled;
+            
+            renderExtStats();
+            if (currentView === 'list') {
+                fileListEl.style.display = ''; treeViewEl.style.display = 'none'; renderList();
+            } else {
+                fileListEl.style.display = 'none'; treeViewEl.style.display = ''; renderTree();
+            }
+        };
+
+        const openPreview = async (fileKey) => {
+            const f = selectedFiles.find(f => getFileKey(f) === fileKey);
+            if (!f) return;
+            const myToken = ++previewAbortToken;
+            const lang = detectLang(f.name);
+            previewTitle.textContent = f.path;
+            previewMeta.textContent = `${formatSize(f.size)} · язык: ${lang} · загрузка…`; previewCode.innerHTML = '<div class="empty-state">Загрузка…</div>';  if (previewWrapEnabled) previewCode.classList.add('wrap'); else previewCode.classList.remove('wrap');  previewModal.classList.add('open'); currentPreviewText = ''; try { const text = f.text !== null ? f.text : `[ОШИБКА ЧТЕНИЯ: ${f.readError}]`;
+                
+                if (myToken !== previewAbortToken) return;
+                currentPreviewText = text;
+                const isTruncated = text.length > PREVIEW_MAX_CHARS;
+                let display = text;
+                if (isTruncated) display = text.slice(0, PREVIEW_MAX_CHARS);
+                
+                if (display.length > PREVIEW_HIGHLIGHT_MAX) {
+                    previewCode.innerHTML = display.split('\n').map((line, i) => {
+                        let eLine = escapeHtml(line);
+                        let lContent = eLine ? eLine : ' ';
+                        return `<div class="code-line"><span class="line-num">${i + 1}</span><span class="line-content">${lContent}</span></div>`;
+                    }).join(''); 
+                } else { 
+                    previewCode.innerHTML = renderTokensToHtml(tokenizeCode(display, lang)); 
+                } 
+                
+                let truncMsg = isTruncated ? ` · показано ${PREVIEW_MAX_CHARS.toLocaleString('ru-RU')}` : ''; previewMeta.textContent = `${formatSize(f.size)} · ${lang} · строк: ${text.split('\n').length.toLocaleString('ru-RU')} · символов: ${text.length.toLocaleString('ru-RU')}${truncMsg}`;
+            } catch (err) {
+                previewCode.innerHTML = `<div class="empty-state">Ошибка рендеринга: ${escapeHtml(err.message)}</div>`;
+                previewMeta.textContent = 'ошибка';
+            }
+        };
+
+        const closePreview = () => {
+            previewAbortToken++;
+            previewModal.classList.remove('open');
+            previewCode.innerHTML = '';
+            currentPreviewText = '';
+        };
+
+        fileListEl.addEventListener('click', (e) => {
+            const removeBtn = e.target.closest('.file-remove');
+            if (removeBtn) { e.stopPropagation(); removeFileByIndex(parseInt(removeBtn.dataset.index, 10)); return; }
+            const pathEl = e.target.closest('.file-path');
+            if (pathEl) {
+                if (pathEl.dataset.previewKey) openPreview(pathEl.dataset.previewKey);
+            }
+        });
+        
+        treeViewEl.addEventListener('click', (e) => {
+            const checkbox = e.target.closest('.tree-checkbox');
+            if (checkbox) {
+                e.stopPropagation(); 
+                if (checkbox.classList.contains('tree-dir-checkbox')) {
+                    const keys = JSON.parse(checkbox.dataset.keys);
+                    if (checkbox.checked) {
+                        keys.forEach(k => excludedFileKeys.delete(k));
+                    } else {
+                        keys.forEach(k => excludedFileKeys.add(k));
+                    }
+                } else {
+                    const key = checkbox.dataset.key;
+                    if (checkbox.checked) excludedFileKeys.delete(key);
+                    else excludedFileKeys.add(key);
+                }
+                if (currentView === 'tree') renderTree();
+                renderUI();
+                // FIX: пересчитываем токены при изменении выбора в дереве
+                scheduleTokenEstimate();
+                return;
+            }
+            
+            const fileEl = e.target.closest('.tree-file');
+            if (fileEl) {
+                if (fileEl.dataset.previewKey) openPreview(fileEl.dataset.previewKey);
+            }
+        });
+        
+        previewClose.addEventListener('click', closePreview);
+        previewModal.addEventListener('click', (e) => { if (e.target === previewModal) closePreview(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && previewModal.classList.contains('open')) closePreview(); });
+        wrapBtn.addEventListener('click', () => { 
+            previewWrapEnabled = !previewWrapEnabled; 
+            if (previewWrapEnabled) {
+                previewCode.classList.add('wrap');
+                wrapBtn.classList.add('active');
+            } else {
+                previewCode.classList.remove('wrap');
+                wrapBtn.classList.remove('active');
+            }
+        });
+
+        previewCopyBtn.addEventListener('click', async () => {
+            if (!currentPreviewText) return;
+            try {
+                if (navigator.clipboard) {
+                    if (navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(currentPreviewText);
+                        showStatus('📋 Содержимое скопировано в буфер', 'success');
+                        return;
+                    }
+                }
+                const ta = document.createElement('textarea'); ta.value = currentPreviewText;
+                ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta);
+                ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                showStatus('📋 Содержимое скопировано в буфер', 'success');
+            } catch (err) {
+                showStatus(`❌ Ошибка копирования: ${err.message}`, 'error'); } });  viewToggle.addEventListener('click', (e) => { const btn = e.target.closest('button[data-view]'); if (!btn) return; currentView = btn.dataset.view; viewToggle.querySelectorAll('button').forEach(b => { if (b.dataset.view === currentView) b.classList.add('active'); else b.classList.remove('active'); }); renderUI(); });  sortSelect.addEventListener('change', (e) => { currentSortStrategy = e.target.value; applySorting(); renderUI(); });  let searchDebounceId = null; searchInput.addEventListener('input', (e) => { clearTimeout(searchDebounceId); searchDebounceId = setTimeout(() => { currentSearchQuery = e.target.value.trim(); renderUI(); }, 120); });  btnSelectLoad.addEventListener('click', (e) => { e.stopPropagation(); directMergeMode = false; fileInput.click(); });  btnSelectDirectMerge.addEventListener('click', (e) => { e.stopPropagation(); directMergeMode = true; fileInput.click(); });  fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) { let arr = Array.from(e.target.files).map(f => { let fpath = f.webkitRelativePath ? f.webkitRelativePath : f.name; return { raw: f, path: fpath.split('\\').join('/'), size: f.size, name: f.name }; }); addFiles(arr); } fileInput.value = ''; });  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); }); dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));  const traverseFileSystemEntry = async (entry, currentPath = '') => { return new Promise((resolve) => { if (entry.isFile) { entry.file( (file) => { let cleanName = (currentPath + file.name).split('\\').join('/'); resolve([{ raw: file, path: cleanName, size: file.size, name: file.name }]); }, (err) => { console.error('Файл:', entry.fullPath, err); resolve([]); } ); } else if (entry.isDirectory) { let skip = false; if (getExcludedPatterns().includes(entry.name.toLowerCase())) skip = true; if (entry.name.length > 1 && entry.name.startsWith('.')) skip = true; if (skip) { resolve([]); return; }  const dirReader = entry.createReader(); const readAll = async () => { let list = []; let more = true; while (more) { const batch = await new Promise(r => dirReader.readEntries(r, () => r([]))); if (batch.length === 0) more = false; else list = list.concat(batch); } return list; }; readAll().then(async (entries) => { let acc = []; for (const child of entries) acc = acc.concat(await traverseFileSystemEntry(child, currentPath + entry.name + '/')); resolve(acc); }).catch(() => resolve([])); } else resolve([]); }); };  dropZone.addEventListener('drop', async (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); try { showStatus('⏳ Сканирование папки проекта…', 'info', false); const items = e.dataTransfer.items; if (items) { if (items.length > 0) { if (items[0].webkitGetAsEntry) { let collected = []; for (let i = 0; i < items.length; i++) { const entry = items[i].webkitGetAsEntry(); if (entry) collected = collected.concat(await traverseFileSystemEntry(entry, '')); } if (collected.length > 0) { await addFiles(collected); return; } } } } if (e.dataTransfer.files) { if (e.dataTransfer.files.length > 0) { let arr = Array.from(e.dataTransfer.files).map(f => { let fpath = f.webkitRelativePath ? f.webkitRelativePath : f.name; return { raw: f, path: fpath.split('\\').join('/'), size: f.size, name: f.name }; }); await addFiles(arr); } } } catch (err) { showStatus(`❌ Ошибка: ${err.message}`, 'error');
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Очистить весь список файлов?')) {
+                selectedFiles = []; excludedFileKeys.clear(); currentSearchQuery = searchInput.value = '';
+                resetWorker();
+                totalTokensEstimate = null; totalTokensEl.textContent = '—';
+                renderUI(); showStatus('🗑 Список файлов очищен', 'info');
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            if (currentMergeController) {
+                currentMergeController.abort();
+                currentMergeController = null;
+                showStatus('⏹ Операция отменена', 'warning');
+            }
+        });
+
+        const setBusy = (busy) => {
+            mergeBtn.disabled = busy;
+            copyBtn.disabled = busy;
+            clearBtn.disabled = busy;
+            searchInput.disabled = busy;
+            btnSelectLoad.disabled = busy;
+            btnSelectDirectMerge.disabled = busy;
+            viewToggle.querySelectorAll('button').forEach(b => b.disabled = busy);
+            progressBox.style.display = busy ? 'block' : 'none';
+            if (busy) progressBar.style.width = '0\x25';
+        };
+
+        const writeOutputFile = async (chunks, filename = getOutputFilename()) => {
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }] });
+                    const writable = await handle.createWritable();
+                    let written = 0;
+                    for (const chunk of chunks) { await writable.write(chunk); written += chunk.length; }
+                    await writable.close();
+                    return { success: true, method: 'fs-access', bytes: written };
+                } catch (err) { 
+                    if (err.name === 'AbortError') return { success: false, method: 'aborted' }; 
+                }
+            }
+            const blob = new Blob(chunks, { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            return { success: true, method: 'blob', bytes: blob.size };
+        };
+
+        // === FIX: безопасная длина Markdown-ограждения ===
+        const getSafeFence = (text) => {
+            if (!text) return '```';
+            const matches = text.match(/`{3,}/g);
+            if (!matches) return '```';
+            const maxLen = Math.max(...matches.map(m => m.length));
+            return '`'.repeat(maxLen + 1);
+        };
+
+        // === FIX: экранирование атрибута path в XML-разметке ===
+        const escapeXmlAttr = (str) => {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        };
+
+        // === ASCII-дерево проекта для секции <toc> ===
+        const buildAsciiTree = (files) => {
+            const root = { children: Object.create(null), isFile: false };
+            for (const f of files) {
+                const parts = f.path.split('/');
+                let curr = root;
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    if (!curr.children[part]) {
+                        curr.children[part] = { 
+                            children: Object.create(null), 
+                            isFile: i === parts.length - 1 
+                        };
+                    }
+                    curr = curr.children[part];
+                }
+            }
+
+            const lines = [];
+            const renderLevel = (node, prefix = '') => {
+                const entries = Object.keys(node.children).sort((a, b) => {
+                    const aIsDir = !node.children[a].isFile;
+                    const bIsDir = !node.children[b].isFile;
+                    if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+                    return a.localeCompare(b);
+                });
+
+                entries.forEach((name, idx) => {
+                    const isLast = idx === entries.length - 1;
+                    const connector = isLast ? '└── ' : '├── ';
+                    const child = node.children[name];
+                    lines.push(`${prefix}${connector}${name}${child.isFile ? '' : '/'}`);
+                    if (!child.isFile) {
+                        renderLevel(child, prefix + (isLast ? '    ' : '│   '));
+                    }
+                });
+            };
+
+            renderLevel(root);
+            return lines.join('\n');
+        };
+
+        const buildMergedChunks = async (files, signal, onProgress) => {
+            const chunks = []; 
+            const total = files.length;
+            
+            let includedFiles = [];
+            if (includeSkippedOnReadError) {
+                includedFiles = files;
+            } else {
+                includedFiles = files.filter(f => !f.readError);
+            }
+                
+            let skippedDueToError = [];
+            if (!includeSkippedOnReadError) {
+                skippedDueToError = files.filter(f => f.readError);
+            }
+
+            let tokenEst = totalTokensEstimate !== null ? totalTokensEstimate : 'n/a';
+            chunks.push(
+                '<bundle_meta>\n',
+                `Total files (requested): ${total}\n`,
+                `Files included: ${includedFiles.length}\n`,
+                `Files skipped (read error): ${skippedDueToError.length}\n`, `Sorting: ${currentSortStrategy}\n`,
+                `Estimated tokens: ~${tokenEst}\n`,
+                `Generated at: ${new Date().toISOString()}\n`
+            );
+            
+            if (skippedDueToError.length > 0) {
+                chunks.push('Skipped files (read error):\n');
+                for (const f of skippedDueToError) {
+                    chunks.push(`- ${f.path} ::${f.readError}\n`);
+                }
+            }
+            chunks.push('</bundle_meta>\n\n');
+
+            // === УЛУЧШЕНИЕ: ASCII-дерево перед плоским списком файлов ===
+            if (includedFiles.length > 0) {
+                chunks.push('<toc>\n');
+                chunks.push('Project structure (ASCII tree):\n');
+                chunks.push(buildAsciiTree(includedFiles));
+                chunks.push('\n\nFiles (flat list):\n');
+                for (const f of includedFiles) {
+                    chunks.push(`- ${f.path}\n`);
+                }
+                chunks.push('</toc>\n\n');
+            }
+
+            for (let i = 0; i < includedFiles.length; i++) {
+                if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                const f = includedFiles[i];
+                const lang = detectLang(f.name);
+                const mdLang = lang === 'plain' ? '' : lang;
+                const ftxt = f.readError ? `[ERROR READING FILE: ${f.readError}]` : (f.text || '');
+                // FIX: динамически вычисляем безопасную длину ограждения
+                const fence = getSafeFence(ftxt);
+                
+                // FIX: экранируем path в XML-атрибуте
+                chunks.push(`\n<file path="${escapeXmlAttr(f.path)}">\n${fence}${mdLang}\n`);
+                chunks.push(ftxt);
+                chunks.push(`\n${fence}\n</file>\n`);
+                
+                if (onProgress) onProgress(i + 1, includedFiles.length, f.name);
+                
+                let yieldNow = false;
+                if (Number.isInteger(i / 50)) yieldNow = true;
+                if (f.size > 500000) yieldNow = true;
+                if (yieldNow) await new Promise(r => setTimeout(r, 0));
+            }
+            return chunks;
+        };
+
+        mergeBtn.addEventListener('click', async () => {
+            const active = getActiveFiles();
+            if (active.length === 0) return;
+            executeDirectMerge();
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            const active = getActiveFiles();
+            if (active.length === 0) return;
+            currentMergeController = new AbortController();
+            setBusy(true);
+            try {
+                const chunks = await buildMergedChunks(active, currentMergeController.signal, (done, total, name) => {
+                    const percent = Math.round((done / total) * 100);
+                    progressBar.style.width = percent + '\x25'; 
+                    progressPercent.textContent = percent + '\x25'; 
+                    progressStatus.textContent = `Подготовка (${done}/${total}): ${name}`;
+                });
+                progressStatus.textContent = 'Копирование в буфер…';
+                const text = chunks.join('');
+                
+                if (text.length > 15000000) {
+                    if (!window.confirm(`Текст очень большой (~${Math.round(text.length / 1024 / 1024)} МБ). Копирование через fallback API может подвесить браузер. Продолжить?`)) {
+                        throw new DOMException('Aborted', 'AbortError');
+                    }
+                }
+
+                if (navigator.clipboard) {
+                    if (navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(text);
+                        let tEst2 = totalTokensEstimate !== null ? totalTokensEstimate : 0;
+                        showStatus(`📋 Скопировано · ~${formatSize(text.length)} · ≈ ${tEst2.toLocaleString('ru-RU')} токенов`, 'success');
+                        return;
+                    }
+                }
+                const ta = document.createElement('textarea'); ta.value = text;
+                ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta);
+                ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                let tEst3 = totalTokensEstimate !== null ? totalTokensEstimate : 0;
+                showStatus(`📋 Скопировано · ~${formatSize(text.length)} · ≈ ${tEst3.toLocaleString('ru-RU')} токенов`, 'success');
+                
+            } catch (err) { 
+                if (err.name !== 'AbortError') showStatus(`❌ Ошибка: ${err.message}`, 'error'); 
+            }
+            finally { currentMergeController = null; setBusy(false); }
+        });
+
+        window.addEventListener('beforeunload', () => { if (tokenWorker) tokenWorker.terminate(); });
+
+/**
+ * Класс для парсинга и форматирования текстовых списков путей файлов.
+ */
+class TextListParser {
+    static parse(text) {
+        if (!text) return [];
+        return text.split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(line => line.length > 0 && !line.startsWith('#'));
+    }
+
+    static stringify(files) {
+        return files.map(f => f.path).join('\n');
+    }
+}
+
+/**
+ * Сервис экспорта данных в файл.
+ */
+class FileExportService {
+    static downloadText(content, filename) {
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+}
+
+// Обработчик экспорта списка путей
+exportListBtnEl.addEventListener('click', () => {
+    const activeFiles = getActiveFiles();
+    if (activeFiles.length === 0) {
+        showStatus('⚠️ Нет файлов для экспорта списка.', 'warning');
+        return;
+    }
+    const textContent = TextListParser.stringify(activeFiles);
+    FileExportService.downloadText(textContent, 'file_paths_list.txt');
+    showStatus('📤 Список путей успешно выгружен в файл.', 'success');
+});
+
+// Обработчик нажатия на кнопку импорта
+importListBtnEl.addEventListener('click', () => {
+    importListInputEl.click();
+});
+
+// Обработчик выбора текстового файла со списком путей
+importListInputEl.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const targetPaths = new Set(TextListParser.parse(text));
+        
+        if (targetPaths.size === 0) {
+            showStatus('⚠️ Импортированный файл пуст или не содержит валидных путей.', 'warning');
+            return;
+        }
+
+        let matchedCount = 0;
+        excludedFileKeys.clear();
+        
+        selectedFiles.forEach(f => {
+            const normalizedPath = f.path.split('\\').join('/');
+            let found = false;
+            for (let tp of targetPaths) {
+                if (normalizedPath.endsWith(tp) || tp.endsWith(normalizedPath)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                excludedFileKeys.add(getFileKey(f));
+            } else {
+                matchedCount++;
+            }
+        });
+
+        renderUI();
+        scheduleTokenEstimate();
+        showStatus(`📥 Список путей загружен. Совпало файлов: ${matchedCount} из ${selectedFiles.length}`, 'success');
+    } catch (err) {
+        showStatus(`❌ Ошибка чтения файла списка: ${err.message}`, 'error');
+    } finally {
+        importListInputEl.value = '';
+    }
+});
+
+        /* Инициализация */
+        renderUserPresets();
+    </script>
+</body>
+</html>
