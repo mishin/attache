@@ -499,6 +499,38 @@ test('findSecrets: пароли в коде и конфигах, без ложн
     eq(C.findSecrets('', 'kotlin', 'a.kt').length, 0);
 });
 
+test('maskSecrets: заменяет ключи, PEM-блоки и пароли, не трогая заглушки', () => {
+    const src = [
+        'const val aws = "AKIAIOSFODNN7EXAMPLE"',
+        'const val apiKey = "abc123def456ghi789"',
+        'const val hint = "Минимум 8 символов"',
+        'val placeholder = "YOUR_API_KEY_HERE"',
+        '-----BEGIN RSA PRIVATE KEY-----',
+        'MIIEowIBAAKCAQEA12345',
+        '-----END RSA PRIVATE KEY-----',
+    ].join('\n');
+    const masked = C.maskSecrets(src, 'kotlin', 'Config.kt');
+    truthy(masked.includes('const val aws = "[REDACTED:AWS-ключ]"'));
+    truthy(masked.includes('const val apiKey = "[REDACTED]"'));
+    truthy(masked.includes('const val hint = "Минимум 8 символов"'));
+    truthy(masked.includes('val placeholder = "YOUR_API_KEY_HERE"'));
+    truthy(masked.includes('[REDACTED:Приватный ключ]'));
+    falsy(masked.includes('MIIEowIBAAKCAQEA12345'));
+    falsy(masked.includes('AKIAIOSFODNN7EXAMPLE'));
+    falsy(masked.includes('abc123def456ghi789'));
+
+    const jsonMasked = C.maskSecrets('{"password": "s3cr3t-pass", "name": "demo"}', 'json', 'config.json');
+    eq(jsonMasked, '{"password": "[REDACTED]", "name": "demo"}');
+
+    const envMasked = C.maskSecrets('DB_PASSWORD=supersecret123\nAPI_KEY=YOUR_API_KEY_HERE\n', 'properties', '.env');
+    eq(envMasked, 'DB_PASSWORD=[REDACTED]\nAPI_KEY=YOUR_API_KEY_HERE\n');
+
+    const tf = C.transformText('val k = "AKIAIOSFODNN7EXAMPLE" // comment\nval ok = 1', 'kotlin', {
+        maskSecrets: true, lineNumbers: true, stripComments: true, fileName: 'A.kt',
+    });
+    eq(tf, '1: val k = "[REDACTED:AWS-ключ]"\n2: val ok = 1');
+});
+
 /* ---------------- Кодировки ---------------- */
 test('inspectBytes: BOM задаёт кодировку, NUL — признак бинарных данных', () => {
     deepEq(C.inspectBytes(new Uint8Array([0x61, 0x62])), { binary: false, encoding: 'utf-8' });

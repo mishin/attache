@@ -122,7 +122,30 @@ try {
         await page.eval(`document.querySelector('#view-toggle button[data-view="list"]').click()`);
     });
 
-    test('баннер секретов: фильтр и исключение подозрительных файлов', async () => {
+    test('баннер секретов: маскирование, фильтр и исключение подозрительных файлов', async () => {
+        await page.eval(`document.getElementById('secret-mask-btn').click()`);
+        const maskState = await page.eval(`(() => {
+            const f = Attache.state.files.find((x) => x.path === 'src/main/Secrets.kt');
+            const active = Attache.state.files.filter((x) => !Attache.state.excludedPaths.has(x.path));
+            const res = Attache.buildParts(active);
+            return {
+                setting: Attache.settings.maskSecrets,
+                checkbox: document.getElementById('opt-mask-secrets').checked,
+                outText: f.outText,
+                bundleText: res.parts.map((p) => p.text).join('\\n'),
+                hasSecretWarn: res.warnings.some((w) => w.includes('секретами')),
+            };
+        })()`);
+        truthy(maskState.setting);
+        truthy(maskState.checkbox);
+        truthy(maskState.outText.includes('[REDACTED:AWS-ключ]'));
+        falsy(maskState.bundleText.includes('AKIAIOSFODNN7EXAMPLE'));
+        falsy(maskState.hasSecretWarn, 'с маскированием предупреждение о незащищённых секретах не мешает');
+
+        // Выключаем маскирование и проверяем исключение файла кнопкой «Исключить»
+        await page.eval(`document.getElementById('secret-mask-btn').click()`);
+        falsy(await page.eval(`Attache.settings.maskSecrets`));
+
         await page.eval(`document.getElementById('secret-exclude-btn').click()`);
         const secretExcluded = await page.eval(`Attache.state.excludedPaths.has('src/main/Secrets.kt')`);
         truthy(secretExcluded);
