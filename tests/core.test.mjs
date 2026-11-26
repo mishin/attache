@@ -295,6 +295,14 @@ test('renderToc / renderMeta: три варианта оглавления и ш
     falsy(meta({ parts: 1, skipped: [] }).includes('Part:'), 'одна часть не подписывается');
 });
 
+test('renderInstructions / instructionsTokenEstimate: шапка инструкций и оценка токенов', () => {
+    eq(C.renderInstructions(''), '');
+    eq(C.renderInstructions('   \n  '), '');
+    eq(C.renderInstructions('  Найди баги  '), '<instructions>\nНайди баги\n</instructions>\n\n');
+    eq(C.instructionsTokenEstimate(''), 0);
+    truthy(C.instructionsTokenEstimate('Проверь маппинг Elasticsearch') > 12);
+});
+
 test('partFileName: суффикс _partNofM перед расширением', () => {
     eq(C.partFileName('merged_context.txt', 1, 1), 'merged_context.txt');
     eq(C.partFileName('merged_context.txt', 2, 3), 'merged_context_part2of3.txt');

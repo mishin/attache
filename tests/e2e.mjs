@@ -194,6 +194,56 @@ try {
         falsy(afterDelete);
     });
 
+    test('инструкция / промпт для нейросети: шаблоны, подсчёт токенов и включение в части', async () => {
+        const beforeTokens = await page.eval(`parseInt(document.getElementById('stat-tokens').textContent.replace(/\\s+/g, ''), 10)`);
+        await page.eval(`(() => {
+            const sel = document.getElementById('prompt-template');
+            sel.value = 'java-es';
+            sel.dispatchEvent(new Event('change'));
+        })()`);
+
+        const afterSelect = await page.eval(`(() => ({
+            text: document.getElementById('prompt-text').value,
+            badge: document.getElementById('prompt-badge').textContent,
+            tokens: parseInt(document.getElementById('stat-tokens').textContent.replace(/\\s+/g, ''), 10),
+        }))()`);
+        truthy(afterSelect.text.includes('Elasticsearch'));
+        truthy(afterSelect.badge.includes('ток.'));
+        truthy(afterSelect.tokens > beforeTokens, 'токены инструкции учтены в общей статистике');
+
+        // По умолчанию инструкция попадает только в 1-ю часть
+        const partCheck1 = await page.eval(`(() => {
+            const active = Attache.state.files.filter((f) => !Attache.state.excludedPaths.has(f.path));
+            const res = Attache.buildParts(active);
+            return {
+                len: res.parts.length,
+                p1Has: res.parts[0].text.startsWith('<instructions>'),
+                p2Has: res.parts[1] ? res.parts[1].text.includes('<instructions>') : false,
+            };
+        })()`);
+        truthy(partCheck1.len >= 2);
+        truthy(partCheck1.p1Has);
+        falsy(partCheck1.p2Has);
+
+        // С галочкой «в каждую часть» инструкция попадает во все части
+        await page.eval(`(() => {
+            const cb = document.getElementById('opt-prompt-all-parts');
+            cb.checked = true;
+            cb.dispatchEvent(new Event('change'));
+        })()`);
+        const partCheckAll = await page.eval(`(() => {
+            const active = Attache.state.files.filter((f) => !Attache.state.excludedPaths.has(f.path));
+            const res = Attache.buildParts(active);
+            return res.parts.every((p) => p.text.startsWith('<instructions>'));
+        })()`);
+        truthy(partCheckAll);
+
+        // Очистка промпта
+        await page.eval(`document.getElementById('btn-clear-prompt').click()`);
+        eq(await page.eval(`document.getElementById('prompt-text').value`), '');
+        eq(await page.eval(`document.getElementById('prompt-template').value`), 'none');
+    });
+
     test('отсутствие ошибок в консоли браузера', async () => {
         eq(page.errors.length, 0, `Ошибки страницы: ${page.errors.join('; ')}`);
     });

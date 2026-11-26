@@ -557,6 +557,23 @@
                             </div>
                         </div>
                     </details>
+                    <details class="adv" id="prompt-details">
+                        <summary>Инструкция / промпт для нейросети <span class="hint" id="prompt-badge"></span></summary>
+                        <div class="adv-body">
+                            <div class="field">
+                                <label for="prompt-template">Шаблон промпта</label>
+                                <div class="inline-row">
+                                    <select id="prompt-template" style="flex: 1 1 auto;"></select>
+                                    <button type="button" class="btn btn-xs btn-ghost" id="btn-clear-prompt" title="Очистить инструкцию">Очистить</button>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="prompt-text">Текст инструкции <span class="hint" id="prompt-tokens-hint"></span></label>
+                                <textarea id="prompt-text" rows="6" spellcheck="true" placeholder="Необязательно: роль, ограничения и формат ответа — попадёт в &lt;instructions&gt; в начале файла"></textarea>
+                            </div>
+                            <label class="check" id="prompt-all-parts-wrap"><input type="checkbox" id="opt-prompt-all-parts"><span>Включать инструкцию в каждую часть <span class="hint">— иначе только в 1-ю</span></span></label>
+                        </div>
+                    </details>
                 </section>
             </aside>
 
@@ -1453,6 +1470,15 @@ const Core = (() => {
 
     const tocTokenEstimate = (fileCount, tocMode) => (tocMode === 'none' ? 0 : fileCount * (tocMode === 'tree' ? 14 : 30));
 
+    function renderInstructions(text) {
+        const clean = String(text || '').trim();
+        return clean ? `<instructions>\n${clean}\n</instructions>\n\n` : '';
+    }
+    const instructionsTokenEstimate = (text) => {
+        const clean = String(text || '').trim();
+        return clean ? estimateTokens(clean, 'markdown') + 12 : 0;
+    };
+
     function renderMeta(info) {
         const lines = ['<bundle_meta>'];
         if (info.note) {
@@ -1584,7 +1610,7 @@ const Core = (() => {
         detectLang, estimateTokens, transformText,
         getAllowedExtensions, isAllowedExtension, hasHiddenSegment, isHiddenName, createIgnoreMatcher, createGitignoreMatcher,
         parseQuery, matchesQuery, parseSize, sortFiles, buildAsciiTree,
-        planParts, tocTokenEstimate, fileOverheadTokens, getSafeFence, renderMeta, renderToc, renderFile,
+        planParts, tocTokenEstimate, fileOverheadTokens, getSafeFence, renderInstructions, instructionsTokenEstimate, renderMeta, renderToc, renderFile,
         findSecrets, inspectBytes, getModelLimit, partFileName,
     };
 })();
@@ -1640,6 +1666,88 @@ const PRESETS = {
     },
 };
 
+const PROMPT_TEMPLATES = [
+    { id: 'none', name: 'Без инструкции', text: '' },
+    {
+        id: 'java-es',
+        name: '☕ Java + Elasticsearch (Senior)',
+        text: `[РОЛЬ И СТЕК]
+Ты — Senior Java Backend Engineer и эксперт по Elasticsearch.
+Стек: Java 11/17/21, Spring Boot 2/3, Spring Data Elasticsearch, Elasticsearch 7.x/8.x (Java API Client / RestHighLevelClient, Query DSL, агрегации, маппинги и реиндексация без даунтайма), Kafka, Redis, Testcontainers.
+
+[ЯЗЫК ОТВЕТА]
+- Весь пояснительный текст, заголовки и новые комментарии в коде пиши на русском языке.
+- Имена классов, методов, полей, ключи YAML/JSON и устоявшиеся названия API оставляй в оригинале.
+
+[ФОРМАТ ВХОДНОГО КОНТЕКСТА]
+Контекст проекта передан в формате Attache:
+1. <bundle_meta> — сводка сборки. Если указано Part: X of Y, ты видишь только часть проекта: не выдумывай отсутствующие файлы и при необходимости попроси недостающую часть.
+2. <toc> — дерево/список включённых файлов.
+3. <file path="относительный/путь"> — содержимое каждого файла. Если строки пронумерованы («  42: »), используй номера для ссылок, но НЕ копируй их в предлагаемый код.
+
+[ПРАВИЛА РАБОТЫ С КОДОМ]
+- Версии Java, Spring Boot и клиента Elasticsearch определяй строго по pom.xml / build.gradle(.kts) / конфигам из контекста.
+- Не выдумывай несуществующие пути, классы и свойства конфигурации; при нехватке файла прямо укажи, какого именно не хватает.
+- Избегай антипаттернов Elasticsearch: глубокой пагинации from+size (предпочитай search_after + PIT), бесконтрольного роста маппинга, тяжёлых terms-агрегаций без composite/лимитов, wildcard с ведущим * на text-полях, отсутствующих таймаутов и ретраев.
+- Пиши готовый компилируемый код без заглушек.
+
+[СТРУКТУРА ОТВЕТА]
+1. 📊 Анализ и диагностика (суть задачи; для бага — топ-2 гипотезы со ссылками на path и строки; для фичи — архитектурный выбор).
+2. 🛠 Изменения в коде (указывай FILE: путь; новые/небольшие файлы <150 строк — целиком, крупные — unified diff или точные блоки Было → Стало).
+3. 💡 Что изменено и почему (3–5 пунктов с акцентом на оптимизации Java/ES).
+4. 🧪 План проверки (конкретные команды Gradle/Maven, curl / Dev Tools запросы к _mapping, _search, _explain).
+
+[ЗАДАЧА]
+`,
+    },
+    {
+        id: 'android',
+        name: '🤖 Android / Kotlin',
+        text: `[РОЛЬ И СТЕК]
+Ты — Senior Android Engineer (Kotlin, Coroutines/Flow, Jetpack Compose, ViewModel, Hilt/Koin, Room/Retrofit, Gradle Kotlin DSL).
+
+[ПРАВИЛА]
+- Отвечай на русском языке, сохраняя идентификаторы, теги и API в оригинале.
+- Опирайся только на файлы из <file path="...">; если файл пронумерован («  42: »), не переноси номера строк в код.
+- Учитывай жизненный цикл Android, отмену корутин, утечки памяти и обратную совместимость.
+
+[СТРУКТУРА ОТВЕТА]
+1. 📊 Анализ и гипотезы (со ссылками на path и строки).
+2. 🛠 Изменения в коде (FILE: путь — полный файл для небольших модулей или точный diff для крупных).
+3. 💡 Краткое резюме и 🧪 команды проверки (./gradlew test / lint).
+
+[ЗАДАЧА]
+`,
+    },
+    {
+        id: 'review',
+        name: '🔍 Code Review и поиск багов',
+        text: `[РОЛЬ И ЗАДАЧА]
+Проведи глубокий Code Review предоставленного контекста проекта. Отвечай на русском языке.
+
+[НА ЧТО ОБРАТИТЬ ВНИМАНИЕ]
+1. Критические баги, гонки, утечки ресурсов, необработанные ошибки и граничные случаи.
+2. Уязвимости безопасности (инъекции, утечка секретов, права доступа, небезопасный ввод).
+3. Проблемы производительности и масштабируемости.
+4. Нарушения контрактов и несоответствие конфигураций.
+
+[ФОРМАТ]
+Для каждой находки укажи: [Критичность] path:строки — причина, сценарий сбоя и конкретное исправление. Не выдумывай файлы, которых нет в <toc>.`,
+    },
+    {
+        id: 'refactor',
+        name: '🛠 Архитектура и рефакторинг',
+        text: `[РОЛЬ И ЗАДАЧА]
+Ты — Principal Software Architect. Проанализируй проект из контекста и предложи план улучшений/рефакторинга на русском языке.
+
+[ФОРМАТ ОТВЕТА]
+1. 📊 Сильные стороны и узкие места текущей архитектуры (со ссылками на <file path="...">).
+2. 🗺 Поэтапный план изменений (с минимальным риском регрессий).
+3. 🛠 Ключевые изменения в коде (готовый код или diff без заглушек).
+4. 🧪 Как проверить, что поведение не сломалось.`,
+    },
+];
+
 const DEFAULT_SETTINGS = {
     theme: 'dark',
     preset: 'android',
@@ -1662,6 +1770,9 @@ const DEFAULT_SETTINGS = {
     stripComments: false,
     keepDocComments: true,
     outputFilename: 'merged_context.txt',
+    promptTemplate: 'none',
+    promptText: '',
+    promptAllParts: false,
     sort: 'tokens-desc',
     view: 'list',
     userPresets: {},
@@ -1744,6 +1855,13 @@ const dom = {
     optKeepDocWrap: $('opt-keep-doc-wrap'),
     optKeepDoc: $('opt-keep-doc'),
     outputFilename: $('output-filename'),
+    promptDetails: $('prompt-details'),
+    promptBadge: $('prompt-badge'),
+    promptTemplate: $('prompt-template'),
+    btnClearPrompt: $('btn-clear-prompt'),
+    promptTokensHint: $('prompt-tokens-hint'),
+    promptText: $('prompt-text'),
+    optPromptAllParts: $('opt-prompt-all-parts'),
     filesCard: $('files-card'),
     welcomeCard: $('welcome-card'),
     statFiles: $('stat-files'),
@@ -2021,6 +2139,20 @@ function populateModelSelect() {
     }
 }
 
+function populatePromptSelect() {
+    dom.promptTemplate.innerHTML = '';
+    for (const tpl of PROMPT_TEMPLATES) {
+        const opt = document.createElement('option');
+        opt.value = tpl.id;
+        opt.textContent = tpl.name;
+        dom.promptTemplate.appendChild(opt);
+    }
+    const customOpt = document.createElement('option');
+    customOpt.value = 'custom';
+    customOpt.textContent = '✏️ Свой текст';
+    dom.promptTemplate.appendChild(customOpt);
+}
+
 function syncControlsFromSettings() {
     dom.extensions.value = settings.extensions;
     dom.ignored.value = settings.ignored;
@@ -2050,6 +2182,14 @@ function syncControlsFromSettings() {
     dom.optKeepDoc.disabled = !settings.stripComments;
     dom.optKeepDocWrap.classList.toggle('is-disabled', !settings.stripComments);
     dom.outputFilename.value = settings.outputFilename;
+
+    const promptTok = Core.instructionsTokenEstimate(settings.promptText);
+    dom.promptTemplate.value = settings.promptTemplate || 'none';
+    if (dom.promptText.value !== (settings.promptText || '')) dom.promptText.value = settings.promptText || '';
+    dom.optPromptAllParts.checked = !!settings.promptAllParts;
+    dom.btnClearPrompt.disabled = !String(settings.promptText || '').trim();
+    dom.promptBadge.textContent = promptTok > 0 ? `· ~${Core.formatCompact(promptTok)} ток.` : '';
+    dom.promptTokensHint.textContent = promptTok > 0 ? `— ≈ ${Core.formatInt(promptTok)} токенов` : '';
 
     dom.viewToggle.querySelectorAll('button[data-view]').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.view === settings.view);
@@ -2145,7 +2285,7 @@ function setSetting(key, value) {
     if (key === 'lineNumbers' || key === 'stripComments' || key === 'keepDocComments') {
         recomputeTransformed();
         renderAll();
-    } else if (key === 'model' || key === 'customTokens' || key === 'split' || key === 'splitTokens' || key === 'splitMb' || key === 'toc') {
+    } else if (key === 'model' || key === 'customTokens' || key === 'split' || key === 'splitTokens' || key === 'splitMb' || key === 'toc' || key === 'promptText' || key === 'promptTemplate' || key === 'promptAllParts') {
         updateStats();
     } else if (key === 'sort' || key === 'view') {
         renderFiles();
@@ -2775,7 +2915,8 @@ function updateStats() {
     const rawTokens = active.reduce((s, f) => s + f.tokens, 0);
     const outTokens = active.reduce((s, f) => s + f.outTokens, 0);
     const tocTokens = Core.tocTokenEstimate(active.length, settings.toc);
-    const estTotalTokens = active.length ? outTokens + tocTokens + 150 + active.reduce((s, f) => s + Core.fileOverheadTokens(f.path), 0) : 0;
+    const instrTokens = Core.instructionsTokenEstimate(settings.promptText);
+    const estTotalTokens = active.length ? outTokens + tocTokens + instrTokens + 150 + active.reduce((s, f) => s + Core.fileOverheadTokens(f.path), 0) : 0;
 
     dom.statFiles.textContent = Core.formatInt(active.length);
     dom.statFilesNote.textContent = active.length < total ? ` из ${Core.formatInt(total)}` : '';
@@ -3347,6 +3488,10 @@ function buildParts(inputFiles = getActiveFiles(), opts = {}) {
     const splitTokens = opts.splitTokens !== undefined ? opts.splitTokens : settings.splitTokens;
     const splitMb = opts.splitMb !== undefined ? opts.splitMb : settings.splitMb;
     const baseFilename = (opts.outputFilename || settings.outputFilename || 'merged_context.txt').trim() || 'merged_context.txt';
+    const promptText = opts.promptText !== undefined ? opts.promptText : settings.promptText;
+    const promptAllParts = opts.promptAllParts !== undefined ? opts.promptAllParts : settings.promptAllParts;
+    const instrBlock = Core.renderInstructions(promptText);
+    const instrTokens = Core.instructionsTokenEstimate(promptText);
 
     const requestedCount = inputFiles.length;
     const included = settings.includeReadErrors ? inputFiles : inputFiles.filter((f) => !f.readError);
@@ -3370,7 +3515,7 @@ function buildParts(inputFiles = getActiveFiles(), opts = {}) {
     const planned = Core.planParts(ordered, {
         limitTokens,
         limitBytes,
-        tocTokens: Core.tocTokenEstimate(Math.min(ordered.length, 40), tocMode),
+        tocTokens: Core.tocTokenEstimate(Math.min(ordered.length, 40), tocMode) + instrTokens,
     });
 
     const generatedAt = new Date().toISOString();
@@ -3382,13 +3527,15 @@ function buildParts(inputFiles = getActiveFiles(), opts = {}) {
         const to = offset + p.files.length;
         offset = to;
         const chunks = [];
+        const withInstr = instrBlock && (idx === 0 || promptAllParts);
+        if (withInstr) chunks.push(instrBlock);
         chunks.push(Core.renderMeta({
             note,
             requested: requestedCount,
             included: ordered.length,
             skipped: idx === 0 ? skipped : [],
             sorting: orderMode === 'list' ? sortMode : 'path-asc',
-            tokens: p.tokens,
+            tokens: p.tokens - (withInstr ? 0 : instrTokens),
             parts: totalParts,
             part: idx + 1,
             from,
@@ -3713,6 +3860,28 @@ function bindEvents() {
     dom.optKeepDoc.addEventListener('change', () => setSetting('keepDocComments', dom.optKeepDoc.checked));
     dom.outputFilename.addEventListener('input', () => setSetting('outputFilename', dom.outputFilename.value));
 
+    dom.promptTemplate.addEventListener('change', () => {
+        const id = dom.promptTemplate.value;
+        const tpl = PROMPT_TEMPLATES.find((t) => t.id === id);
+        if (tpl) {
+            settings.promptTemplate = id;
+            setSetting('promptText', tpl.text);
+        } else {
+            setSetting('promptTemplate', id);
+        }
+    });
+    dom.promptText.addEventListener('input', () => {
+        const val = dom.promptText.value;
+        const matched = PROMPT_TEMPLATES.find((t) => t.text === val);
+        settings.promptTemplate = matched ? matched.id : 'custom';
+        setSetting('promptText', val);
+    });
+    dom.btnClearPrompt.addEventListener('click', () => {
+        settings.promptTemplate = 'none';
+        setSetting('promptText', '');
+    });
+    dom.optPromptAllParts.addEventListener('change', () => setSetting('promptAllParts', dom.optPromptAllParts.checked));
+
     // Секреты
     dom.secretShowBtn.addEventListener('click', () => {
         state.query = 'secret';
@@ -3905,6 +4074,7 @@ function bindEvents() {
 }
 
 populateModelSelect();
+populatePromptSelect();
 applyTheme();
 syncControlsFromSettings();
 renderPresets();
